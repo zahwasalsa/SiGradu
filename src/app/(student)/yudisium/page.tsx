@@ -77,10 +77,10 @@ export default async function YudisiumPage() {
                   : "Pengajuan Anda sedang diproses. Anda dapat memantau riwayat keputusan di halaman Status."}
               </p>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" render={<Link href="/yudisium/dokumen" />}>
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/yudisium/dokumen" />}>
                   <FolderOpen className="size-4" /> Kelola Dokumen
                 </Button>
-                <Button variant="outline" size="sm" render={<Link href="/yudisium/status" />}>
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/yudisium/status" />}>
                   Lihat Riwayat Status
                 </Button>
               </div>

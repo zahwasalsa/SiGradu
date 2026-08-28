@@ -85,11 +85,11 @@ export default async function WisudaPage() {
               <CardTitle className="text-base">Langkah Selanjutnya</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" render={<Link href="/wisuda/pembayaran" />}>
+              <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/wisuda/pembayaran" />}>
                 Pembayaran Wisuda
               </Button>
               {registration.attendance_choice === "hadir" ? (
-                <Button variant="outline" size="sm" render={<Link href="/wisuda/buku" />}>
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/wisuda/buku" />}>
                   Data Buku Wisuda
                 </Button>
               ) : null}

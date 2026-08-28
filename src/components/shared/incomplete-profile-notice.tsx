@@ -18,7 +18,7 @@ export function IncompleteProfileNotice() {
         Lengkapi NIM, Fakultas, Program Studi, dan Jenjang Anda terlebih dahulu di halaman Profil
         sebelum menggunakan fitur ini.
       </p>
-      <Button size="sm" render={<Link href="/profile" />}>
+      <Button size="sm" nativeButton={false} render={<Link href="/profile" />}>
         Lengkapi Profil Sekarang
       </Button>
     </div>

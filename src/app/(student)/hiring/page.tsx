@@ -81,10 +81,10 @@ export default async function HiringPage() {
                 </div>
               )}
               <div className="flex flex-wrap gap-2">
-                <Button render={<Link href="/hiring/lowongan" />} size="sm">
+                <Button render={<Link href="/hiring/lowongan" />} size="sm" nativeButton={false}>
                   Lihat Lowongan
                 </Button>
-                <Button variant="outline" size="sm" render={<Link href="/hiring/lamaran" />}>
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/hiring/lamaran" />}>
                   Lamaran Saya
                 </Button>
               </div>
@@ -126,7 +126,7 @@ export default async function HiringPage() {
             <p className="text-sm text-muted-foreground">
               Setelah syarat hiring/bukti kerja terpenuhi, lengkapi Form Tracer Study.
             </p>
-            <Button size="sm" render={<Link href="/tracer" />}>
+            <Button size="sm" nativeButton={false} render={<Link href="/tracer" />}>
               <Briefcase className="size-4" /> Buka Tracer Study
             </Button>
           </CardContent>

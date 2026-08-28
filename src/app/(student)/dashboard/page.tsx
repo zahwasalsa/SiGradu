@@ -127,7 +127,7 @@ function ModuleCard({
             Terkunci
           </Button>
         ) : (
-          <Button variant="default" size="sm" render={<Link href={href} />}>
+          <Button variant="default" size="sm" nativeButton={false} render={<Link href={href} />}>
             Buka <ArrowRight className="size-3.5" />
           </Button>
         )}
