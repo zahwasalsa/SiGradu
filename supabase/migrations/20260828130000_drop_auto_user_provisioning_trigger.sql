@@ -1,0 +1,29 @@
+-- Sigradu — fix: registerStudent() (src/app/register/actions.ts) always
+-- explicitly inserts into public.users right after signUp() succeeds. A
+-- leftover trigger from before this project's own registration feature was
+-- built — on_auth_user_created (fires handle_new_auth_user() on every
+-- INSERT into auth.users) — ALSO inserts a public.users row at that exact
+-- moment, hardcoding role = 'mahasiswa' and deriving full_name from the
+-- email's local-part. registerStudent()'s own insert then collides with it
+-- (duplicate primary key on users.id), so every self-registration attempt
+-- fails with "Registrasi gagal saat menyimpan profil" — 100% reproducible,
+-- not intermittent. Confirmed directly: a throwaway auth user created via
+-- admin.auth.admin.createUser() got an auto-created public.users row before
+-- any app code ran.
+--
+-- This trigger predates and duplicates what this app's own code already
+-- does correctly and explicitly (registerStudent() sets full_name from what
+-- the user actually typed, not derived from their email; role is always
+-- 'mahasiswa' by deliberate design, never accepted from the client). It is
+-- also unconditionally wrong for any account created directly via Supabase
+-- Auth outside self-registration (e.g. provisioning an admin account),
+-- since it would silently default that account to role 'mahasiswa' too.
+--
+-- Only the TRIGGER is dropped, not handle_new_auth_user() itself — matches
+-- how this project has left other superseded leftover DB objects in place
+-- (is_admin/is_role/is_student/student_id_for_user) rather than deleting
+-- them, per "don't change schema without explaining why." on_auth_user_updated
+-- (sync_auth_user_email(), fires on UPDATE) is untouched — separate,
+-- unrelated trigger that keeps email in sync and isn't implicated here.
+
+drop trigger if exists on_auth_user_created on auth.users;
