@@ -8,8 +8,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { LockedNotice } from "@/components/shared/locked-notice";
 import { IncompleteProfileNotice } from "@/components/shared/incomplete-profile-notice";
 import { EmptyState } from "@/components/shared/empty-state";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { AddExternalApplicationForm } from "@/components/hiring/add-external-application-form";
+import { JobApplicationStatusSelect } from "@/components/hiring/job-application-status-select";
 import { JOB_APPLICATION_STATUS_LABELS } from "@/types/domain";
 
 export default async function HiringLamaranPage() {
@@ -68,25 +68,27 @@ export default async function HiringLamaranPage() {
         {rows.length === 0 ? (
           <EmptyState icon={ClipboardList} title="Belum ada lamaran" description="Mulai lamar lowongan atau catat lamaran manual di atas." />
         ) : (
-          <ul className="flex flex-col gap-2">
-            {rows.map((app) => (
-              <li key={app.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                <div>
-                  <p className="font-medium">
-                    {app.job_vacancies?.title ?? app.vacancy_name_external ?? "-"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {app.job_vacancies?.company_name ?? ""}{" "}
-                    {format(new Date(app.applied_at), "d MMM yyyy", { locale: idLocale })}
-                  </p>
-                </div>
-                <StatusBadge
-                  status={app.application_status}
-                  label={JOB_APPLICATION_STATUS_LABELS[app.application_status]}
-                />
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-muted-foreground">
+              Perbarui status sesuai perkembangan lamaran Anda di perusahaan (Diproses/Interview/Diterima/Ditolak).
+            </p>
+            <ul className="flex flex-col gap-2">
+              {rows.map((app) => (
+                <li key={app.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+                  <div>
+                    <p className="font-medium">
+                      {app.job_vacancies?.title ?? app.vacancy_name_external ?? "-"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {app.job_vacancies?.company_name ?? ""}{" "}
+                      {format(new Date(app.applied_at), "d MMM yyyy", { locale: idLocale })}
+                    </p>
+                  </div>
+                  <JobApplicationStatusSelect applicationId={app.id} status={app.application_status} />
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </div>

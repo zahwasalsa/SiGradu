@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,9 +32,15 @@ export function TracerStudyForm({ existing }: { existing: Tables<"tracer_studies
     return submitTracerStudy(formData);
   }, initialState);
 
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     if (state.error) toast.error(state.error);
-  }, [state.error]);
+    else toast.success("Tracer Study berhasil disubmit.");
+  }, [state]);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">

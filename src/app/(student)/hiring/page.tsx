@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Briefcase } from "lucide-react";
+import { Briefcase, ExternalLink } from "lucide-react";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { getStudentProgress, isModule2Unlocked } from "@/lib/modules/gating";
+import { getSignedUrl, BUCKETS } from "@/lib/storage";
 import { PageHeader } from "@/components/shared/page-header";
 import { LockedNotice } from "@/components/shared/locked-notice";
 import { IncompleteProfileNotice } from "@/components/shared/incomplete-profile-notice";
@@ -38,6 +39,13 @@ export default async function HiringPage() {
 
   const { employmentStatus, jobApplicationsCount, threshold, employmentProofs, bypassed } =
     progress.hiringTracer;
+
+  const proofsWithUrl = await Promise.all(
+    employmentProofs.map(async (p) => ({
+      ...p,
+      signedUrl: await getSignedUrl(supabase, BUCKETS.hiring, p.file_path),
+    }))
+  );
 
   return (
     <div>
@@ -96,9 +104,9 @@ export default async function HiringPage() {
               <CardTitle className="text-base">Bukti Kerja</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {employmentProofs.length > 0 ? (
+              {proofsWithUrl.length > 0 ? (
                 <ul className="flex flex-col gap-2">
-                  {employmentProofs.map((p) => (
+                  {proofsWithUrl.map((p) => (
                     <li key={p.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
                       <div>
                         <p className="font-medium">{p.company_name}</p>
@@ -106,7 +114,19 @@ export default async function HiringPage() {
                           {EMPLOYMENT_PROOF_TYPE_LABELS[p.proof_type]}
                         </p>
                       </div>
-                      <StatusBadge status={p.status} label={EMPLOYMENT_PROOF_STATUS_LABELS[p.status]} />
+                      <div className="flex items-center gap-2">
+                        {p.signedUrl ? (
+                          <a
+                            href={p.signedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            Lihat <ExternalLink className="size-3" />
+                          </a>
+                        ) : null}
+                        <StatusBadge status={p.status} label={EMPLOYMENT_PROOF_STATUS_LABELS[p.status]} />
+                      </div>
                     </li>
                   ))}
                 </ul>

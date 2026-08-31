@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,23 @@ export function PaymentUploadForm() {
     return uploadPayment(formData);
   }, initialState);
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const isFirstRender = useRef(true);
   useEffect(() => {
-    if (state.error) toast.error(state.error);
-  }, [state.error]);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (state.error) {
+      toast.error(state.error);
+    } else {
+      toast.success("Bukti pembayaran berhasil diunggah.");
+      formRef.current?.reset();
+    }
+  }, [state]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="amount">Nominal Bayar (Rp)</Label>

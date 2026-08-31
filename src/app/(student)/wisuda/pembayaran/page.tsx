@@ -1,8 +1,10 @@
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+import { ExternalLink } from "lucide-react";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { getStudentProgress, isModule3Unlocked } from "@/lib/modules/gating";
+import { getSignedUrl, BUCKETS } from "@/lib/storage";
 import { PageHeader } from "@/components/shared/page-header";
 import { LockedNotice } from "@/components/shared/locked-notice";
 import { IncompleteProfileNotice } from "@/components/shared/incomplete-profile-notice";
@@ -46,6 +48,13 @@ export default async function WisudaPembayaranPage() {
     .eq("registration_id", registration.id)
     .order("created_at", { ascending: false });
 
+  const paymentsWithUrl = await Promise.all(
+    (payments ?? []).map(async (p) => ({
+      ...p,
+      signedUrl: await getSignedUrl(supabase, BUCKETS.wisuda, p.proof_file_path),
+    }))
+  );
+
   const canUpload = registration.status === "menunggu_pembayaran" || registration.status === "pembayaran_ditolak";
 
   return (
@@ -53,13 +62,13 @@ export default async function WisudaPembayaranPage() {
       <PageHeader title="Pembayaran Wisuda" />
 
       <div className="flex flex-col gap-4">
-        {payments && payments.length > 0 ? (
+        {paymentsWithUrl.length > 0 ? (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Riwayat Pembayaran</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              {payments.map((p) => (
+              {paymentsWithUrl.map((p) => (
                 <div key={p.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
                   <div>
                     <p className="font-medium">Rp{Number(p.amount).toLocaleString("id-ID")}</p>
@@ -70,7 +79,19 @@ export default async function WisudaPembayaranPage() {
                       <p className="mt-1 text-xs text-destructive">Alasan ditolak: {p.rejection_reason}</p>
                     ) : null}
                   </div>
-                  <StatusBadge status={p.status} label={PAYMENT_STATUS_LABELS[p.status]} />
+                  <div className="flex items-center gap-2">
+                    {p.signedUrl ? (
+                      <a
+                        href={p.signedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-primary hover:underline"
+                      >
+                        Lihat <ExternalLink className="size-3" />
+                      </a>
+                    ) : null}
+                    <StatusBadge status={p.status} label={PAYMENT_STATUS_LABELS[p.status]} />
+                  </div>
                 </div>
               ))}
             </CardContent>

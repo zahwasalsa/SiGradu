@@ -8,6 +8,12 @@ import type { EmploymentProofStatus } from "@/types/domain";
 
 type ActionResult = { error: string | null };
 
+// NOTE: application_status (diproses/interview/diterima/ditolak) is
+// self-reported by the STUDENT, not set by admin_bkk — only the student
+// actually knows the real-world outcome of their own job application. See
+// src/app/(student)/hiring/actions.ts updateMyJobApplicationStatus(). Admin
+// BKK only ever SELECTs job_applications, for monitoring/threshold purposes.
+
 export async function verifyEmploymentProof(input: {
   proofId: string;
   employmentStatusId: string;

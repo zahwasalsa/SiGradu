@@ -61,7 +61,10 @@ export default async function TracerPage() {
         </CardHeader>
         <CardContent>
           {canEdit ? (
-            <TracerStudyForm existing={tracer} />
+            /* key forces a clean remount when `existing` goes from null to a
+               real record — same fix as BookDataForm, see that call site
+               for why this is needed with Base UI's uncontrolled inputs. */
+            <TracerStudyForm key={tracer?.id ?? "new"} existing={tracer} />
           ) : (
             <p className="text-sm text-muted-foreground">
               Form sudah disubmit dan sedang/telah diverifikasi Admin BKK.

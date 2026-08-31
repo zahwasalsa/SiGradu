@@ -5,30 +5,40 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HiringThresholdForm } from "@/components/admin/hiring-threshold-form";
 import { PeriodManager } from "@/components/admin/period-manager";
+import { VacancyManager } from "@/components/admin/vacancy-manager";
 import { Settings } from "lucide-react";
 
 export default async function AdminSettingsPage() {
   await requireRole(["admin_bkk"]);
   const supabase = await createClient();
 
-  const [{ data: yudisiumPeriods }, { data: studyPrograms }, { data: thresholds }, { data: wisudaPeriods }] =
-    await Promise.all([
-      supabase
-        .from("periods")
-        .select("id, name, start_date, end_date, is_active")
-        .eq("type", "yudisium")
-        .order("start_date", { ascending: false }),
-      supabase.from("study_programs").select("id, name").order("name"),
-      supabase
-        .from("hiring_thresholds")
-        .select("id, min_applications, periods(name), study_programs(name)")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("periods")
-        .select("id, name, start_date, end_date, is_active")
-        .eq("type", "wisuda")
-        .order("start_date", { ascending: false }),
-    ]);
+  const [
+    { data: yudisiumPeriods },
+    { data: studyPrograms },
+    { data: thresholds },
+    { data: wisudaPeriods },
+    { data: vacancies },
+  ] = await Promise.all([
+    supabase
+      .from("periods")
+      .select("id, name, start_date, end_date, is_active")
+      .eq("type", "yudisium")
+      .order("start_date", { ascending: false }),
+    supabase.from("study_programs").select("id, name").order("name"),
+    supabase
+      .from("hiring_thresholds")
+      .select("id, min_applications, periods(name), study_programs(name)")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("periods")
+      .select("id, name, start_date, end_date, is_active")
+      .eq("type", "wisuda")
+      .order("start_date", { ascending: false }),
+    supabase
+      .from("job_vacancies")
+      .select("id, title, company_name, description, is_active")
+      .order("created_at", { ascending: false }),
+  ]);
 
   type ThresholdRow = {
     id: string;
@@ -48,6 +58,10 @@ export default async function AdminSettingsPage() {
       <div className="mb-4 grid gap-4 lg:grid-cols-2">
         <PeriodManager type="yudisium" periods={yudisiumPeriods ?? []} />
         <PeriodManager type="wisuda" periods={wisudaPeriods ?? []} />
+      </div>
+
+      <div className="mb-4">
+        <VacancyManager vacancies={vacancies ?? []} />
       </div>
 
       <Card className="mb-4">

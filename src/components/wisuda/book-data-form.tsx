@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,9 +26,15 @@ export function BookDataForm({
     return uploadBookData(formData);
   }, initialState);
 
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     if (state.error) toast.error(state.error);
-  }, [state.error]);
+    else toast.success("Data buku wisuda berhasil diunggah.");
+  }, [state]);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -61,7 +67,7 @@ export function BookDataForm({
         </div>
         <div className="flex flex-col gap-2 sm:col-span-2">
           <Label htmlFor="file">Foto Formal</Label>
-          <Input id="file" name="file" type="file" accept=".jpg,.jpeg,.png" required />
+          <Input id="file" name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
         </div>
       </div>
       <div className="flex justify-end">

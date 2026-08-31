@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/session";
 import { getStudentProgress, isModule2Unlocked } from "@/lib/modules/gating";
 import { buildStoragePath, uploadPrivateFile, BUCKETS } from "@/lib/storage";
-import type { EmploymentCurrentStatus, EmploymentProofType } from "@/types/domain";
+import type { EmploymentCurrentStatus, EmploymentProofType, JobApplicationStatus } from "@/types/domain";
 
 type ActionResult = { error: string | null };
 
@@ -99,6 +99,43 @@ export async function addJobApplication(input: {
   revalidatePath("/hiring/lamaran");
   revalidatePath("/hiring/lowongan");
   revalidatePath("/dashboard");
+  return { error: null };
+}
+
+/**
+ * Student self-reports the real-world outcome of their own lamaran
+ * (Diproses/Interview/Diterima/Ditolak) — only they actually know this, it
+ * happens at the employer, not at Admin BKK. Admin BKK only ever views
+ * job_applications for monitoring (see src/app/admin/hiring/actions.ts).
+ */
+export async function updateMyJobApplicationStatus(input: {
+  applicationId: string;
+  status: JobApplicationStatus;
+}): Promise<ActionResult> {
+  const ctx = await getUnlockedContext();
+  if (ctx.error) return { error: ctx.error };
+  const { supabase, studentId } = ctx;
+
+  const { data: application } = await supabase
+    .from("job_applications")
+    .select("id, employment_status(student_id)")
+    .eq("id", input.applicationId)
+    .maybeSingle();
+
+  const owner = (application as unknown as { employment_status: { student_id: string } | null } | null)
+    ?.employment_status?.student_id;
+  if (!application || owner !== studentId) {
+    return { error: "Lamaran tidak ditemukan." };
+  }
+
+  const { error } = await supabase
+    .from("job_applications")
+    .update({ application_status: input.status })
+    .eq("id", input.applicationId);
+  if (error) return { error: "Gagal memperbarui status lamaran." };
+
+  revalidatePath("/hiring");
+  revalidatePath("/hiring/lamaran");
   return { error: null };
 }
 

@@ -41,3 +41,40 @@ export async function upsertHiringThreshold(input: {
   revalidatePath("/admin/settings");
   return { error: null };
 }
+
+export async function createVacancy(input: {
+  title: string;
+  companyName: string;
+  description: string;
+}): Promise<ActionResult> {
+  const user = await requireRole(["admin_bkk"]);
+  if (!input.title.trim() || !input.companyName.trim()) {
+    return { error: "Judul lowongan dan nama perusahaan wajib diisi." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("job_vacancies").insert({
+    title: input.title.trim(),
+    company_name: input.companyName.trim(),
+    description: input.description.trim() || null,
+    posted_by: user.id,
+    is_active: true,
+  });
+  if (error) return { error: "Gagal menyimpan lowongan. Silakan coba lagi." };
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/hiring/lowongan");
+  return { error: null };
+}
+
+export async function setVacancyActive(vacancyId: string, isActive: boolean): Promise<ActionResult> {
+  await requireRole(["admin_bkk"]);
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("job_vacancies").update({ is_active: isActive }).eq("id", vacancyId);
+  if (error) return { error: "Gagal memperbarui lowongan." };
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/hiring/lowongan");
+  return { error: null };
+}
