@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, User } from "lucide-react";
+import { ChevronDown, LogOut, User } from "lucide-react";
 import { signOutAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,11 +38,17 @@ export function UserMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" className="h-9 gap-2 px-2" />}>
-        <Avatar className="size-7">
-          <AvatarFallback className="text-xs">{initials(fullName) || <User className="size-4" />}</AvatarFallback>
+      <DropdownMenuTrigger render={<Button variant="ghost" className="h-11 gap-2 px-2" />}>
+        <Avatar className="size-9">
+          <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+            {initials(fullName) || <User className="size-4" />}
+          </AvatarFallback>
         </Avatar>
-        <span className="hidden text-sm font-medium sm:inline">{fullName}</span>
+        <span className="hidden flex-col items-start leading-tight sm:flex">
+          <span className="text-sm font-medium">{fullName}</span>
+          <span className="text-xs text-muted-foreground">{ROLE_LABELS[role]}</span>
+        </span>
+        <ChevronDown className="hidden size-4 text-muted-foreground sm:block" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {/* MenuPrimitive.GroupLabel (what DropdownMenuLabel wraps) requires a

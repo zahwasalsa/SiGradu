@@ -114,12 +114,17 @@ export function PeriodManager({ type, periods }: { type: PeriodType; periods: Pe
                 key={p.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
               >
-                <div>
-                  <p className="font-medium">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(p.start_date), "d MMM yyyy", { locale: idLocale })} –{" "}
-                    {format(new Date(p.end_date), "d MMM yyyy", { locale: idLocale })}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    <CalendarRange className="size-4" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(p.start_date), "d MMM yyyy", { locale: idLocale })} –{" "}
+                      {format(new Date(p.end_date), "d MMM yyyy", { locale: idLocale })}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span

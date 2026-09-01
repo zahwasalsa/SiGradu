@@ -1,39 +1,17 @@
 import Link from "next/link";
+import { ShieldCheck } from "lucide-react";
 import { requireRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/shared/page-header";
-import { EmptyState } from "@/components/shared/empty-state";
-import { StatusBadge } from "@/components/shared/status-badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { PeriodManager } from "@/components/admin/period-manager";
-import { FileText } from "lucide-react";
-import { YUDISIUM_STATUS_LABELS, type YudisiumStatus } from "@/types/domain";
-
-/**
- * Shape returned by the embedded select below. The hand-written Database type
- * (src/types/database.ts) doesn't carry PostgREST relationship metadata, so we
- * type this query's result manually instead of fighting generic inference —
- * replace with real generated types once the live schema is confirmed.
- */
-type ApplicationRow = {
-  id: string;
-  status: YudisiumStatus;
-  submitted_at: string | null;
-  created_at: string;
-  students: {
-    nim: string;
-    users: { full_name: string } | null;
-    study_programs: { name: string } | null;
-  } | null;
-};
+import { PanduanDialog } from "@/components/shared/panduan-dialog";
+import {
+  YudisiumApplicationsTable,
+  type ApplicationRow,
+} from "@/components/admin/yudisium-applications-table";
+import { type YudisiumStatus } from "@/types/domain";
 
 const FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "Semua" },
@@ -64,7 +42,7 @@ export default async function AdminYudisiumListPage({
 
   if (activeFilter) query = query.eq("status", activeFilter);
 
-  const [{ data }, { data: yudisiumPeriods }] = await Promise.all([
+  const [{ data }, { data: yudisiumPeriods }, { data: allStatuses }] = await Promise.all([
     query,
     user.role === "admin_fakultas"
       ? supabase
@@ -73,14 +51,32 @@ export default async function AdminYudisiumListPage({
           .eq("type", "yudisium")
           .order("start_date", { ascending: false })
       : Promise.resolve({ data: null }),
+    supabase.from("yudisium_applications").select("status"),
   ]);
-  const applications = data as unknown as ApplicationRow[] | null;
+  const applications = (data as unknown as ApplicationRow[] | null) ?? [];
+
+  const counts = new Map<string, number>();
+  for (const row of allStatuses ?? []) {
+    counts.set(row.status, (counts.get(row.status) ?? 0) + 1);
+  }
+  const totalCount = allStatuses?.length ?? 0;
 
   return (
     <div>
       <PageHeader
         title="Verifikasi Yudisium"
         description="Daftar pengajuan yudisium mahasiswa yang perlu ditinjau."
+        icon={ShieldCheck}
+        actions={
+          <PanduanDialog
+            title="Panduan Verifikasi Yudisium"
+            points={[
+              "Gunakan tab status untuk menyaring pengajuan berdasarkan tahapannya.",
+              "Klik \"Detail\" pada baris mahasiswa untuk meninjau dokumen dan menetapkan keputusan.",
+              "Kolom pencarian menyaring berdasarkan NIM atau nama mahasiswa pada daftar yang sedang ditampilkan.",
+            ]}
+          />
+        }
       />
 
       {user.role === "admin_fakultas" ? (
@@ -101,51 +97,15 @@ export default async function AdminYudisiumListPage({
               }
             >
               {f.label}
+              <Badge variant="secondary" className="ml-1 px-1.5">
+                {f.value === "all" ? totalCount : (counts.get(f.value) ?? 0)}
+              </Badge>
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
 
-      {!applications || applications.length === 0 ? (
-        <EmptyState icon={FileText} title="Tidak ada pengajuan" description="Belum ada data pada filter ini." />
-      ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>NIM</TableHead>
-                <TableHead>Nama</TableHead>
-                <TableHead>Program Studi</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {applications.map((app) => {
-                const student = app.students;
-                const studentUser = student?.users ?? null;
-                const program = student?.study_programs ?? null;
-
-                return (
-                  <TableRow key={app.id}>
-                    <TableCell className="font-mono text-xs">{student?.nim ?? "-"}</TableCell>
-                    <TableCell>{studentUser?.full_name ?? "-"}</TableCell>
-                    <TableCell>{program?.name ?? "-"}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={app.status} label={YUDISIUM_STATUS_LABELS[app.status]} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link href={`/admin/yudisium/${app.id}`} className="text-sm text-primary hover:underline">
-                        Detail
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <YudisiumApplicationsTable applications={applications} />
     </div>
   );
 }
