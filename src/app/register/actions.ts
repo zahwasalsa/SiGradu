@@ -109,6 +109,16 @@ export async function registerStudent(input: RegisterInput): Promise<RegisterSta
 
   const newUserId = signUpData.user.id;
 
+  // Auto-confirm the email server-side instead of making the student wait on
+  // Supabase's confirmation email (unreliable on the free-tier SMTP — several
+  // real accounts got stuck at "Waiting for verification" indefinitely,
+  // unable to log in despite a correct password). The student already proved
+  // they own this exact browser session by completing this form; the app
+  // itself has no further use for a separately-verified email address.
+  const { error: confirmError } = await admin.auth.admin.updateUserById(newUserId, {
+    email_confirm: true,
+  });
+
   const { error: profileError } = await admin.from("users").insert({
     id: newUserId,
     email: data.email,
@@ -141,8 +151,8 @@ export async function registerStudent(input: RegisterInput): Promise<RegisterSta
     return { error: message };
   }
 
-  // signUpData.session is only non-null when Supabase auto-confirmed the
-  // account (i.e. "Confirm email" is off for this project) — when it's null,
-  // the student must click the confirmation link before they can log in.
-  return { error: null, success: true, needsEmailConfirmation: !signUpData.session };
+  // Normally false now that updateUserById above confirms every new account —
+  // only true if that admin call itself failed, in which case the student
+  // still has the emailed confirmation link as a fallback.
+  return { error: null, success: true, needsEmailConfirmation: !!confirmError };
 }
