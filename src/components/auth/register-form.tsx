@@ -47,6 +47,7 @@ export function RegisterForm({
   const [pending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
 
   const {
     register,
@@ -74,8 +75,11 @@ export function RegisterForm({
         return;
       }
       setSuccess(true);
+      setNeedsEmailConfirmation(!!result.needsEmailConfirmation);
       toast.success("Registrasi berhasil!");
-      setTimeout(() => router.push("/login"), 1200);
+      if (!result.needsEmailConfirmation) {
+        setTimeout(() => router.push("/login"), 1200);
+      }
     });
   }
 
@@ -86,7 +90,14 @@ export function RegisterForm({
           <CheckCircle2 className="size-6" />
         </div>
         <p className="font-medium">Registrasi berhasil</p>
-        <p className="text-sm text-muted-foreground">Mengarahkan ke halaman login…</p>
+        {needsEmailConfirmation ? (
+          <p className="max-w-xs text-sm text-muted-foreground">
+            Cek inbox (atau folder spam) email Anda dan klik link konfirmasi sebelum bisa masuk ke
+            Sigradu.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Mengarahkan ke halaman login…</p>
+        )}
       </div>
     );
   }

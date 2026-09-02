@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerSchema, type RegisterInput } from "./schema";
@@ -7,6 +8,8 @@ import { registerSchema, type RegisterInput } from "./schema";
 export type RegisterState = {
   error: string | null;
   success?: boolean;
+  /** True when Supabase requires the student to confirm their email before they can log in. */
+  needsEmailConfirmation?: boolean;
 };
 
 function mapSupabaseAuthError(message: string): string {
@@ -78,9 +81,12 @@ export async function registerStudent(input: RegisterInput): Promise<RegisterSta
   }
 
   const supabase = await createClient();
+  const headersList = await headers();
+  const origin = headersList.get("origin") ?? `https://${headersList.get("host")}`;
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
+    options: { emailRedirectTo: `${origin}/auth/callback?next=/` },
   });
 
   if (signUpError) {
@@ -135,5 +141,8 @@ export async function registerStudent(input: RegisterInput): Promise<RegisterSta
     return { error: message };
   }
 
-  return { error: null, success: true };
+  // signUpData.session is only non-null when Supabase auto-confirmed the
+  // account (i.e. "Confirm email" is off for this project) — when it's null,
+  // the student must click the confirmation link before they can log in.
+  return { error: null, success: true, needsEmailConfirmation: !signUpData.session };
 }

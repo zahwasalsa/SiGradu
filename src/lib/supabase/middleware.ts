@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * Paths that do not require an authenticated session.
  * Everything else is treated as protected by default (fail closed).
  */
-const PUBLIC_PATH_PREFIXES = ["/login", "/register", "/auth"];
+const PUBLIC_PATH_PREFIXES = ["/login", "/register", "/auth", "/forgot-password"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

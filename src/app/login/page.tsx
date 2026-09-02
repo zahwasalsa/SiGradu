@@ -33,7 +33,13 @@ export default async function LoginPage({
               Daftar sebagai Mahasiswa
             </Link>
           </p>
-          <p>Lupa password atau akun admin/staf? Hubungi administrator Sigradu.</p>
+          <p>
+            Lupa password?{" "}
+            <Link href="/forgot-password" className="font-medium text-primary hover:underline">
+              Reset di sini
+            </Link>
+          </p>
+          <p>Akun admin/staf baru dibuatkan oleh administrator Sigradu.</p>
         </div>
       </div>
     </div>
