@@ -1,15 +1,11 @@
 "use server";
 
-import { headers } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerSchema, type RegisterInput } from "./schema";
 
 export type RegisterState = {
   error: string | null;
   success?: boolean;
-  /** True when Supabase requires the student to confirm their email before they can log in. */
-  needsEmailConfirmation?: boolean;
 };
 
 function mapSupabaseAuthError(message: string): string {
@@ -80,44 +76,33 @@ export async function registerStudent(input: RegisterInput): Promise<RegisterSta
     return { error: "Email sudah terdaftar. Silakan masuk atau gunakan email lain." };
   }
 
-  const supabase = await createClient();
-  const headersList = await headers();
-  const origin = headersList.get("origin") ?? `https://${headersList.get("host")}`;
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+  // Created via the admin API (not supabase.auth.signUp()) so registration
+  // never sends a confirmation email at all — signUp() would still attempt
+  // one on every call even though the app doesn't need it anymore, and at
+  // registration-period volume that can hit Supabase's free-tier email rate
+  // limit and start failing signups outright, on top of the emails
+  // themselves being unreliable (see the auto-confirm note below).
+  // createUser() also skips the anti-enumeration "empty identities" dance
+  // signUp() does for duplicate emails — it just returns a normal error,
+  // caught below, and the public.users pre-check above already covers the
+  // common case anyway.
+  const { data: createdUser, error: createError } = await admin.auth.admin.createUser({
     email: data.email,
     password: data.password,
-    options: { emailRedirectTo: `${origin}/auth/callback?next=/` },
+    email_confirm: true,
   });
 
-  if (signUpError) {
-    return { error: mapSupabaseAuthError(signUpError.message) };
+  if (createError) {
+    if (createError.code === "email_exists") {
+      return { error: "Email sudah terdaftar. Silakan masuk atau gunakan email lain." };
+    }
+    return { error: mapSupabaseAuthError(createError.message) };
   }
-  if (!signUpData.user) {
+  if (!createdUser.user) {
     return { error: "Registrasi gagal. Silakan coba lagi." };
   }
 
-  // Supabase Auth returns 200 with an EMPTY `identities` array (not an
-  // error) when signUp is called for an email that already has an auth
-  // account — deliberate anti-enumeration behavior. `signUpData.user` in
-  // that case is the PRE-EXISTING account, not a new one. Without this
-  // check we could (a) attach a 'mahasiswa' profile to someone else's
-  // account, and worse, (b) the profileError cleanup below would call
-  // admin.auth.admin.deleteUser() on that pre-existing account.
-  if (signUpData.user.identities && signUpData.user.identities.length === 0) {
-    return { error: "Email sudah terdaftar. Silakan masuk atau gunakan email lain." };
-  }
-
-  const newUserId = signUpData.user.id;
-
-  // Auto-confirm the email server-side instead of making the student wait on
-  // Supabase's confirmation email (unreliable on the free-tier SMTP — several
-  // real accounts got stuck at "Waiting for verification" indefinitely,
-  // unable to log in despite a correct password). The student already proved
-  // they own this exact browser session by completing this form; the app
-  // itself has no further use for a separately-verified email address.
-  const { error: confirmError } = await admin.auth.admin.updateUserById(newUserId, {
-    email_confirm: true,
-  });
+  const newUserId = createdUser.user.id;
 
   const { error: profileError } = await admin.from("users").insert({
     id: newUserId,
@@ -127,8 +112,6 @@ export async function registerStudent(input: RegisterInput): Promise<RegisterSta
   });
 
   if (profileError) {
-    // Safe to delete here: the identities check above already confirmed
-    // this auth account was just created by this request, not pre-existing.
     await admin.auth.admin.deleteUser(newUserId);
     return { error: "Registrasi gagal saat menyimpan profil. Silakan coba lagi." };
   }
@@ -151,8 +134,5 @@ export async function registerStudent(input: RegisterInput): Promise<RegisterSta
     return { error: message };
   }
 
-  // Normally false now that updateUserById above confirms every new account —
-  // only true if that admin call itself failed, in which case the student
-  // still has the emailed confirmation link as a fallback.
-  return { error: null, success: true, needsEmailConfirmation: !!confirmError };
+  return { error: null, success: true };
 }
