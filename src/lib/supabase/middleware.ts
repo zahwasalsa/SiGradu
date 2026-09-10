@@ -56,41 +56,12 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // TEMPORARY DEBUG LOGGING (server console only). Never logs password,
-  // access token, refresh token, or any secret — only pathname, whether a
-  // session was found, email, role, and the redirect decision. Remove once
-  // the reported /login /register issue is confirmed resolved.
-  let debugRole: string | null = null;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    debugRole = profile?.role ?? null;
-  }
-
   if (!user && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectTo", pathname);
-    console.log("[sigradu:middleware]", {
-      pathname,
-      hasUser: false,
-      email: null,
-      role: null,
-      redirect: url.pathname + url.search,
-    });
     return NextResponse.redirect(url);
   }
-
-  console.log("[sigradu:middleware]", {
-    pathname,
-    hasUser: !!user,
-    email: user?.email ?? null,
-    role: debugRole,
-    redirect: "none",
-  });
 
   // NOTE: the block that used to live here —
   //   if (user && (pathname === "/login" || pathname === "/register")) {
