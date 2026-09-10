@@ -77,72 +77,79 @@ export async function getStudentProgress(
   let bypassed = false;
   let tracerStudy: TracerStudy | null = null;
 
+  // module3Unlocked can only be known after tracerStudy is fetched below, so the
+  // graduation_registrations lookup below is not truly independent of this block —
+  // but everything *inside* this block that doesn't depend on `es` can run together.
+  let module3Unlocked = false;
+
   if (module2Unlocked && application) {
     const periodId = application.period_id;
 
-    const { data: es } = await supabase
-      .from("employment_status")
-      .select("*")
-      .eq("student_id", student.id)
-      .eq("period_id", periodId)
-      .maybeSingle();
+    // employment_status and tracer_studies are both keyed only by student+period,
+    // neither depends on the other's result, so fetch them together instead of
+    // waiting on one before starting the next network round trip.
+    const [{ data: es }, { data: tracer }] = await Promise.all([
+      supabase
+        .from("employment_status")
+        .select("*")
+        .eq("student_id", student.id)
+        .eq("period_id", periodId)
+        .maybeSingle(),
+      supabase
+        .from("tracer_studies")
+        .select("*")
+        .eq("student_id", student.id)
+        .eq("period_id", periodId)
+        .maybeSingle(),
+    ]);
     employmentStatus = es;
+    tracerStudy = tracer;
 
     if (es) {
-      const [{ count }, { data: proofs }, { data: bypassRow }] = await Promise.all([
-        supabase
-          .from("job_applications")
-          .select("id", { count: "exact", head: true })
-          .eq("employment_status_id", es.id),
-        supabase
-          .from("employment_proofs")
-          .select("*")
-          .eq("employment_status_id", es.id)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("bypass_logs")
-          .select("id")
-          .eq("employment_status_id", es.id)
-          .limit(1)
-          .maybeSingle(),
-      ]);
+      // Count, proofs, bypass flag, and both possible threshold rows are all
+      // independent lookups — run every one of them in the same round trip.
+      const [{ count }, { data: proofs }, { data: bypassRow }, { data: scopedThreshold }, { data: defaultThreshold }] =
+        await Promise.all([
+          supabase
+            .from("job_applications")
+            .select("id", { count: "exact", head: true })
+            .eq("employment_status_id", es.id),
+          supabase
+            .from("employment_proofs")
+            .select("*")
+            .eq("employment_status_id", es.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("bypass_logs")
+            .select("id")
+            .eq("employment_status_id", es.id)
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("hiring_thresholds")
+            .select("min_applications")
+            .eq("period_id", periodId)
+            .eq("study_program_id", student.studyProgramId)
+            .maybeSingle(),
+          supabase
+            .from("hiring_thresholds")
+            .select("min_applications")
+            .eq("period_id", periodId)
+            .is("study_program_id", null)
+            .maybeSingle(),
+        ]);
 
       jobApplicationsCount = count ?? 0;
       employmentProofs = proofs ?? [];
       bypassed = !!bypassRow;
-
       // Prefer a threshold scoped to the student's program; fall back to the
-      // period-wide default (study_program_id IS NULL).
-      const { data: scopedThreshold } = await supabase
-        .from("hiring_thresholds")
-        .select("min_applications")
-        .eq("period_id", periodId)
-        .eq("study_program_id", student.studyProgramId)
-        .maybeSingle();
-
-      if (scopedThreshold) {
-        threshold = scopedThreshold.min_applications;
-      } else {
-        const { data: defaultThreshold } = await supabase
-          .from("hiring_thresholds")
-          .select("min_applications")
-          .eq("period_id", periodId)
-          .is("study_program_id", null)
-          .maybeSingle();
-        threshold = defaultThreshold?.min_applications ?? null;
-      }
+      // period-wide default (study_program_id IS NULL). Both were already
+      // fetched above in parallel, so picking between them here is free.
+      threshold = scopedThreshold?.min_applications ?? defaultThreshold?.min_applications ?? null;
     }
 
-    const { data: tracer } = await supabase
-      .from("tracer_studies")
-      .select("*")
-      .eq("student_id", student.id)
-      .eq("period_id", periodId)
-      .maybeSingle();
-    tracerStudy = tracer;
+    module3Unlocked = isModule3Unlocked(tracerStudy);
   }
-
-  const module3Unlocked = isModule3Unlocked(tracerStudy);
 
   let registration: GraduationRegistration | null = null;
   if (module3Unlocked) {

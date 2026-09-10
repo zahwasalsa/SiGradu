@@ -53,36 +53,41 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!authUser) return null;
 
   const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("users")
-    .select("id, role, full_name, email, phone_number, is_active")
-    .eq("id", authUser.id)
-    .maybeSingle();
 
-  if (!profile) return null;
-
-  let student: CurrentStudent | null = null;
-
-  if (profile.role === "mahasiswa") {
-    const { data: studentRow } = await supabase
+  // The `students` row only needs authUser.id, not the resolved role from
+  // `users` — so fetch both tables together instead of waiting for the users
+  // query to finish (and its role check) before even starting the students
+  // one. The result is discarded below if the role turns out not to be
+  // "mahasiswa", which costs nothing extra since the query already ran.
+  const [{ data: profile }, { data: studentRow }] = await Promise.all([
+    supabase
+      .from("users")
+      .select("id, role, full_name, email, phone_number, is_active")
+      .eq("id", authUser.id)
+      .maybeSingle(),
+    supabase
       .from("students")
       .select(
         "id, nim, faculty_id, study_program_id, degree_level, thesis_title, supervisor_name"
       )
       .eq("user_id", authUser.id)
-      .maybeSingle();
+      .maybeSingle(),
+  ]);
 
-    if (studentRow) {
-      student = {
-        id: studentRow.id,
-        nim: studentRow.nim,
-        facultyId: studentRow.faculty_id,
-        studyProgramId: studentRow.study_program_id,
-        degreeLevel: studentRow.degree_level,
-        thesisTitle: studentRow.thesis_title,
-        supervisorName: studentRow.supervisor_name,
-      };
-    }
+  if (!profile) return null;
+
+  let student: CurrentStudent | null = null;
+
+  if (profile.role === "mahasiswa" && studentRow) {
+    student = {
+      id: studentRow.id,
+      nim: studentRow.nim,
+      facultyId: studentRow.faculty_id,
+      studyProgramId: studentRow.study_program_id,
+      degreeLevel: studentRow.degree_level,
+      thesisTitle: studentRow.thesis_title,
+      supervisorName: studentRow.supervisor_name,
+    };
   }
 
   return {
