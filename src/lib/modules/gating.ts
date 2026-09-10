@@ -55,6 +55,12 @@ function computeHiringRequirementMet(
 /**
  * Loads the logged-in student's progress across all three modules in one pass.
  * Used by the student dashboard and by gate checks on Modul 2/3 pages.
+ *
+ * PERF NOTE: everything that only depends on `periodId`/`studentId` (employment
+ * status, tracer study, both threshold lookups) is fetched in one Promise.all
+ * instead of one-at-a-time — they don't depend on each other, so there's no
+ * reason to make the browser wait through them sequentially. Same for the
+ * job-application/proof/bypass trio, which was already parallel.
  */
 export async function getStudentProgress(
   supabase: SupabaseClient<Database>,
@@ -80,13 +86,46 @@ export async function getStudentProgress(
   if (module2Unlocked && application) {
     const periodId = application.period_id;
 
-    const { data: es } = await supabase
-      .from("employment_status")
-      .select("*")
-      .eq("student_id", student.id)
-      .eq("period_id", periodId)
-      .maybeSingle();
+    // These four only need periodId/studentId — none of them depends on the
+    // others' result, so run them together instead of one round trip at a time.
+    const [
+      { data: es },
+      { data: tracer },
+      { data: scopedThreshold },
+      { data: defaultThreshold },
+    ] = await Promise.all([
+      supabase
+        .from("employment_status")
+        .select("*")
+        .eq("student_id", student.id)
+        .eq("period_id", periodId)
+        .maybeSingle(),
+      supabase
+        .from("tracer_studies")
+        .select("*")
+        .eq("student_id", student.id)
+        .eq("period_id", periodId)
+        .maybeSingle(),
+      supabase
+        .from("hiring_thresholds")
+        .select("min_applications")
+        .eq("period_id", periodId)
+        .eq("study_program_id", student.studyProgramId)
+        .maybeSingle(),
+      supabase
+        .from("hiring_thresholds")
+        .select("min_applications")
+        .eq("period_id", periodId)
+        .is("study_program_id", null)
+        .maybeSingle(),
+    ]);
+
     employmentStatus = es;
+    tracerStudy = tracer;
+    // Prefer a threshold scoped to the student's program; fall back to the
+    // period-wide default (study_program_id IS NULL). Both were already
+    // fetched above, so picking between them costs nothing extra.
+    threshold = scopedThreshold?.min_applications ?? defaultThreshold?.min_applications ?? null;
 
     if (es) {
       const [{ count }, { data: proofs }, { data: bypassRow }] = await Promise.all([
@@ -110,36 +149,7 @@ export async function getStudentProgress(
       jobApplicationsCount = count ?? 0;
       employmentProofs = proofs ?? [];
       bypassed = !!bypassRow;
-
-      // Prefer a threshold scoped to the student's program; fall back to the
-      // period-wide default (study_program_id IS NULL).
-      const { data: scopedThreshold } = await supabase
-        .from("hiring_thresholds")
-        .select("min_applications")
-        .eq("period_id", periodId)
-        .eq("study_program_id", student.studyProgramId)
-        .maybeSingle();
-
-      if (scopedThreshold) {
-        threshold = scopedThreshold.min_applications;
-      } else {
-        const { data: defaultThreshold } = await supabase
-          .from("hiring_thresholds")
-          .select("min_applications")
-          .eq("period_id", periodId)
-          .is("study_program_id", null)
-          .maybeSingle();
-        threshold = defaultThreshold?.min_applications ?? null;
-      }
     }
-
-    const { data: tracer } = await supabase
-      .from("tracer_studies")
-      .select("*")
-      .eq("student_id", student.id)
-      .eq("period_id", periodId)
-      .maybeSingle();
-    tracerStudy = tracer;
   }
 
   const module3Unlocked = isModule3Unlocked(tracerStudy);
